@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.rearcards"
-        minSdk = 26
+        minSdk = 27
         targetSdk = 37
         versionCode = 1
         versionName = "1.0.0"
