@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>背屏卡片 - RearCards</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0a0a0f;
+    --card-bg:rgba(255,255,255,0.06);
+    --card-border:rgba(255,255,255,0.08);
+    --card-active:rgba(98,0,238,0.15);
+    --text:#e8e8f0;
+    --text-dim:rgba(255,255,255,0.45);
+    --accent:#7c4dff;
+    --accent-glow:rgba(124,77,255,0.3);
+    --success:#00e676;
+    --danger:#ff5252;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  /* ── Layout ── */
+  .app{display:flex;flex-direction:column;min-height:100vh}
+  .header{
+    padding:20px 24px 16px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:10;
+    background:linear-gradient(var(--bg) 60%,transparent);
+  }
+  .header h1{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+  .header h1 span{color:var(--accent)}
+  .status-pill{
+    font-size:12px;padding:4px 12px;border-radius:20px;
+    background:rgba(0,230,118,0.12);color:var(--success);
+    display:flex;align-items:center;gap:6px;
+  }
+  .status-pill::before{
+    content:'';width:6px;height:6px;border-radius:50%;
+    background:var(--success);
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  .subtitle{padding:0 24px 20px;font-size:13px;color:var(--text-dim)}
+
+  .cards-grid{
+    padding:0 16px 24px;
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:12px;flex:1;
+  }
+
+  /* ── Card ── */
+  .card{
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:16px;
+    padding:16px;
+    position:relative;
+    overflow:hidden;
+    transition:all .3s cubic-bezier(.4,0,.2,1);
+    cursor:pointer;
+    user-select:none;
+  }
+  .card::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(circle at 30% 0%,var(--accent-glow),transparent 60%);
+    opacity:0;transition:opacity .3s;
+  }
+  .card:hover::before{opacity:1}
+  .card.active{
+    border-color:var(--accent);
+    box-shadow:0 0 20px var(--accent-glow),inset 0 0 20px rgba(124,77,255,0.05);
+  }
+  .card.active::before{opacity:1}
+
+  .card-header{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;position:relative;z-index:1;
+  }
+  .card-icon{font-size:20px}
+  .card-title{font-size:13px;font-weight:600;letter-spacing:0.3px}
+
+  .toggle{
+    width:36px;height:20px;border-radius:10px;
+    background:rgba(255,255,255,0.12);
+    position:relative;cursor:pointer;
+    transition:background .3s;
+  }
+  .toggle.on{background:var(--accent)}
+  .toggle::after{
+    content:'';position:absolute;
+    width:16px;height:16px;border-radius:50%;
+    background:#fff;top:2px;left:2px;
+    transition:transform .3s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 1px 3px rgba(0,0,0,0.3);
+  }
+  .toggle.on::after{transform:translateX(16px)}
+
+  .card-body{position:relative;z-index:1}
+
+  /* ── Clock Card ── */
+  .clock-time{
+    font-size:28px;font-weight:700;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:1px;
+    line-height:1;
+    background:linear-gradient(135deg,#fff,var(--accent));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .clock-date{font-size:11px;color:var(--text-dim);margin-top:6px}
+
+  /* ── Weather Card ── */
+  .weather-main{font-size:24px;font-weight:700;line-height:1}
+  .weather-desc{font-size:11px;color:var(--text-dim);margin-top:6px}
+  .weather-detail{font-size:10px;color:var(--text-dim);margin-top:4px}
+
+  /* ── Steps Card ── */
+  .steps-count{font-size:24px;font-weight:700}
+  .steps-bar{
+    margin-top:8px;height:4px;border-radius:2px;
+    background:rgba(255,255,255,0.1);overflow:hidden;
+  }
+  .steps-fill{
+    height:100%;border-radius:2px;
+    background:linear-gradient(90deg,var(--accent),var(--success));
+    transition:width .6s cubic-bezier(.4,0,.2,1);
+  }
+  .steps-label{font-size:10px;color:var(--text-dim);margin-top:4px}
+
+  /* ── Battery Card ── */
+  .battery-level{font-size:24px;font-weight:700}
+  .battery-bar{
+    margin-top:8px;display:flex;gap:2px;
+  }
+  .battery-seg{
+    flex:1;height:6px;border-radius:2px;
+    background:rgba(255,255,255,0.1);
+    transition:background .3s;
+  }
+  .battery-seg.filled{background:var(--success)}
+  .battery-seg.filled.warn{background:#ffc107}
+  .battery-seg.filled.crit{background:var(--danger)}
+  .battery-info{font-size:10px;color:var(--text-dim);margin-top:6px}
+
+  /* ── Custom Card ── */
+  .custom-title{font-size:14px;font-weight:600;margin-bottom:6px}
+  .custom-content{
+    font-size:12px;color:var(--text-dim);
+    line-height:1.5;word-break:break-all;
+  }
+
+  /* ── Preview Modal ── */
+  .modal-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.7);
+    backdrop-filter:blur(8px);
+    z-index:100;
+    display:none;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .3s;
+  }
+  .modal-overlay.show{display:flex;opacity:1}
+  .modal{
+    width:90%;max-width:360px;
+    background:linear-gradient(145deg,#1a1a2e,#0f0f1a);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:24px;
+    padding:24px;
+    transform:scale(0.9);
+    transition:transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  .modal-overlay.show .modal{transform:scale(1)}
+  .modal h3{font-size:16px;margin-bottom:16px}
+  .modal label{font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px}
+  .modal input,.modal textarea{
+    width:100%;padding:10px 14px;
+    background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:10px;color:var(--text);
+    font-size:14px;outline:none;
+    margin-bottom:12px;
+    transition:border-color .2s;
+  }
+  .modal input:focus,.modal textarea:focus{border-color:var(--accent)}
+  .modal textarea{resize:vertical;min-height:60px}
+  .modal-btns{display:flex;gap:10px;margin-top:8px}
+  .modal-btns button{
+    flex:1;padding:10px;border:none;border-radius:10px;
+    font-size:14px;font-weight:600;cursor:pointer;
+    transition:all .2s;
+  }
+  .btn-cancel{background:rgba(255,255,255,0.08);color:var(--text)}
+  .btn-save{background:var(--accent);color:#fff}
+  .btn-save:hover{filter:brightness(1.15)}
+  .btn-cancel:hover{background:rgba(255,255,255,0.12)}
+
+  /* ── Phone Preview ── */
+  .phone-frame{
+    width:200px;height:400px;
+    background:#111;border-radius:28px;
+    border:2px solid #333;
+    margin:24px auto 0;
+    padding:20px 12px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .phone-frame::before{
+    content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    width:60px;height:4px;border-radius:2px;
+    background:#333;
+  }
+  .phone-screen{
+    width:100%;height:100%;
+    background:linear-gradient(180deg,#0d0d1a,#1a0a2e);
+    border-radius:16px;
+    padding:20px 10px 10px;
+    overflow-y:auto;
+  }
+  .phone-card{
+    background:rgba(255,255,255,0.05);
+    border-radius:10px;padding:10px;
+    margin-bottom:8px;font-size:10px;
+  }
+  .phone-card-title{font-weight:600;margin-bottom:4px;font-size:11px}
+
+  /* ── Floating Action ── */
+  .fab{
+    position:fixed;bottom:24px;right:24px;
+    width:52px;height:52px;border-radius:50%;
+    background:var(--accent);border:none;
+    color:#fff;font-size:24px;
+    box-shadow:0 4px 20px var(--accent-glow);
+    cursor:pointer;z-index:50;
+    transition:transform .2s,box-shadow .2s;
+  }
+  .fab:hover{transform:scale(1.1);box-shadow:0 6px 30px var(--accent-glow)}
+  .fab:active{transform:scale(0.95)}
+
+  /* ── Responsive ── */
+  @media(min-width:480px){
+    .cards-grid{grid-template-columns:repeat(3,1fr)}
+  }
+  @media(min-width:768px){
+    .app{flex-direction:row}
+    .sidebar{width:320px;padding:24px;position:sticky;top:0;height:100vh;overflow-y:auto}
+    .main{flex:1;padding:24px}
+    .cards-grid{grid-template-columns:1fr 1fr;max-width:500px}
+  }
+
+  /* ── Toast ── */
+  .toast{
+    position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:rgba(30,30,50,0.95);
+    border:1px solid rgba(255,255,255,0.1);
+    padding:10px 20px;border-radius:12px;
+    font-size:13px;z-index:200;
+    opacity:0;transition:all .3s;
+    pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>背屏<span>卡片</span></h1>
+    <div class="status-pill">已连接</div>
+  </div>
+  <div class="subtitle">选择要在背屏显示的卡片 · 点击卡片编辑内容</div>
+
+  <!-- Cards Grid -->
+  <div class="cards-grid">
+
+    <!-- Clock -->
+    <div class="card active" id="card-clock" onclick="toggleCard('clock')">
+      <div class="card-header">
+        <div>
+          <div class="card-icon">🕐</div>
+          <div class="card-title">时钟</div>
+        </div>
+        <div class="toggle on" id="toggle-clock"></div>
+      </div>
+      <div class="card-body">
+        <div class="clock-time" id="clock-time">--:--:--</div>
+        <div class="clock-date" id="clock-date"></div>
+      </div>
+    </div>
+
+    <!-- Weather -->
+    <div class="card" id="card-weather" onclick="toggleCard('weather')">
+      <div class="card-header">
+        <div>
+          <div class="card-icon">🌤</div>
+          <div class="card-title">天气</div>
+        </div>
+        <div class="toggle" id="toggle-weather"></div>
+      </div>
+      <div class="card-body">
+        <div class="weather-main" id="weather-main">--°C</div>
+        <div class="weather-desc" id="weather-desc">未获取</div>
+        <div class="weather-detail" id="weather-detail"></div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="card" id="card-steps" onclick="toggleCard('steps')">
+      <div class="card-header">
+        <div>
+          <div class="card-icon">👟</div>
+          <div class="card-title">步数</div>
+        </div>
+        <div class="toggle" id="toggle-steps"></div>
+      </div>
+      <div class="card-body">
+        <div class="steps-count" id="steps-count">0</div>
+        <div class="steps-bar"><div class="steps-fill" id="steps-fill" style="width:0%"></div></div>
+        <div class="steps-label" id="steps-label">目标 10,000 步</div>
+      </div>
+    </div>
+
+    <!-- Battery -->
+    <div class="card" id="card-battery" onclick="toggleCard('battery')">
+      <div class="card-header">
+        <div>
+          <div class="card-icon">🔋</div>
+          <div class="card-title">电池</div>
+        </div>
+        <div class="toggle" id="toggle-battery"></div>
+      </div>
+      <div class="card-body">
+        <div class="battery-level" id="battery-level">--%</div>
+        <div class="battery-bar" id="battery-bar"></div>
+        <div class="battery-info" id="battery-info">获取中...</div>
+      </div>
+    </div>
+
+    <!-- Custom Text -->
+    <div class="card" id="card-custom" onclick="if(!event.target.closest('.toggle'))openModal()">
+      <div class="card-header">
+        <div>
+          <div class="card-icon">📝</div>
+          <div class="card-title">自定义</div>
+        </div>
+        <div class="toggle" id="toggle-custom" onclick="event.stopPropagation();toggleCard('custom')"></div>
+      </div>
+      <div class="card-body">
+        <div class="custom-title" id="custom-title">📝 备忘</div>
+        <div class="custom-content" id="custom-content">点击编辑自定义内容</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3>📝 编辑自定义卡片</h3>
+    <label>标题</label>
+    <input type="text" id="input-title" placeholder="📝 备忘" maxlength="20">
+    <label>内容</label>
+    <textarea id="input-content" placeholder="输入要显示的内容..." rows="3"></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" onclick="saveCustom()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+const state = {
+  cards: { clock: true, weather: false, steps: false, battery: false, custom: false },
+  city: '北京',
+  customTitle: '📝 备忘',
+  customContent: '点击编辑自定义内容',
+  stepsToday: 0,
+  stepsGoal: 10000
+};
+
+// ── Toggle Card ──
+function toggleCard(name) {
+  state.cards[name] = !state.cards[name];
+  const card = document.getElementById('card-' + name);
+  const toggle = document.getElementById('toggle-' + name);
+  card.classList.toggle('active', state.cards[name]);
+  toggle.classList.toggle('on', state.cards[name]);
+  if (name === 'weather' && state.cards.weather) fetchWeather();
+  if (name === 'battery' && state.cards.battery) fetchBattery();
+  if (name === 'steps' && state.cards.steps) simulateSteps();
+  toast(state.cards[name] ? `✅ ${card.querySelector('.card-title').textContent} 已启用` : `⏸ 已关闭`);
+}
+
+// ── Clock ──
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('clock-time').textContent = `${h}:${m}:${s}`;
+  const days = ['日', '一', '二', '三', '四', '五', '六'];
+  const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${days[now.getDay()]}`;
+  document.getElementById('clock-date').textContent = dateStr;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Weather ──
+async function fetchWeather() {
+  try {
+    const res = await fetch(`https://wttr.in/${state.city}?format=j1`);
+    const data = await res.json();
+    const cur = data.current_condition[0];
+    const temp = cur.temp_C;
+    const desc = cur.weatherDesc[0].value;
+    const humidity = cur.humidity;
+    const wind = cur.winddir16Point;
+    const icon = getWeatherIcon(desc);
+    document.getElementById('weather-main').textContent = `${icon} ${temp}°C`;
+    document.getElementById('weather-desc').textContent = desc;
+    document.getElementById('weather-detail').textContent = `湿度 ${humidity}% · ${wind}`;
+  } catch {
+    document.getElementById('weather-desc').textContent = '获取失败';
+  }
+}
+function getWeatherIcon(desc) {
+  const d = desc.toLowerCase();
+  if (d.includes('clear') || d.includes('晴')) return '☀️';
+  if (d.includes('partly') || d.includes('多云')) return '⛅';
+  if (d.includes('overcast') || d.includes('阴')) return '☁️';
+  if (d.includes('rain') || d.includes('雨')) return '🌧️';
+  if (d.includes('snow') || d.includes('雪')) return '❄️';
+  if (d.includes('thunder') || d.includes('雷')) return '⛈️';
+  if (d.includes('fog') || d.includes('雾')) return '🌫️';
+  return '🌤';
+}
+
+// ── Steps (simulated) ──
+function simulateSteps() {
+  state.stepsToday = Math.floor(Math.random() * 12000);
+  updateStepsUI();
+}
+function updateStepsUI() {
+  const pct = Math.min(100, (state.stepsToday / state.stepsGoal) * 100);
+  document.getElementById('steps-count').textContent = state.stepsToday.toLocaleString();
+  document.getElementById('steps-fill').style.width = pct + '%';
+  document.getElementById('steps-label').textContent = `目标 ${state.stepsGoal.toLocaleString()} 步 · ${Math.round(pct)}%`;
+}
+
+// ── Battery ──
+async function fetchBattery() {
+  try {
+    if ('getBattery' in navigator) {
+      const bat = await navigator.getBattery();
+      const level = Math.round(bat.level * 100);
+      const charging = bat.charging;
+      updateBatteryUI(level, charging);
+    } else {
+      updateBatteryUI(85, false); // fallback
+    }
+  } catch {
+    updateBatteryUI(85, false);
+  }
+}
+function updateBatteryUI(level, charging) {
+  document.getElementById('battery-level').textContent = `${level}%`;
+  const bar = document.getElementById('battery-bar');
+  bar.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'battery-seg';
+    if (i < Math.ceil(level / 10)) {
+      seg.classList.add('filled');
+      if (level <= 15) seg.classList.add('crit');
+      else if (level <= 30) seg.classList.add('warn');
+    }
+    bar.appendChild(seg);
+  }
+  const emoji = charging ? '⚡' : level <= 15 ? '🪫' : '🔋';
+  document.getElementById('battery-info').textContent = `${emoji} ${charging ? '充电中' : '未充电'}`;
+}
+
+// ── Custom Text Modal ──
+function openModal() {
+  document.getElementById('input-title').value = state.customTitle;
+  document.getElementById('input-content').value = state.customContent;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+function saveCustom() {
+  state.customTitle = document.getElementById('input-title').value || '📝 备忘';
+  state.customContent = document.getElementById('input-content').value || '自定义内容';
+  document.getElementById('custom-title').textContent = state.customTitle;
+  document.getElementById('custom-content').textContent = state.customContent;
+  closeModal();
+  toast('✅ 已更新');
+}
+
+// ── Toast ──
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
