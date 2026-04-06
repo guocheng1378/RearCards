@@ -3,8 +3,6 @@ package com.example.rearcards.cards
 import android.os.Bundle
 import hk.uwu.reareye.widgetapi.RearWidgetApiClient
 import hk.uwu.reareye.widgetapi.RearWidgetNoticeOptions
-import hk.uwu.reareye.widgetapi.RearWidgetNoticeTicket
-
 /**
  * 背屏卡片基类
  */
@@ -13,7 +11,6 @@ abstract class BaseCard(
     val business: String,
     val priority: Int = 500,
 ) {
-    protected var ticket: RearWidgetNoticeTicket? = null
     protected var isActive = false
 
     /**
@@ -31,33 +28,28 @@ abstract class BaseCard(
      * 注销卡片
      */
     fun unregister(client: RearWidgetApiClient, targetPackage: String) {
-        ticket?.let { client.removeNotice(it) }
+        client.disableBusinessDisplay(targetPackage, business)
         client.unregisterBusiness(targetPackage, business)
-        ticket = null
         isActive = false
     }
 
     /**
      * 发布/更新卡片内容
+     * 注意：RearWidgetApiClient.postNotice() 返回 Unit（不返回 ticket）
+     * 因此每次重新 post，不再依赖 updateNotice
      */
     fun publish(client: RearWidgetApiClient, targetPackage: String) {
         val payload = buildPayload()
         val options = buildOptions()
-
-        if (ticket == null) {
-            ticket = client.postNotice(targetPackage, business, payload, options)
-        } else {
-            client.updateNotice(ticket!!, payload, options)
-        }
+        client.postNotice(targetPackage, business, payload, options)
         isActive = true
     }
 
     /**
      * 移除卡片显示
      */
-    fun remove(client: RearWidgetApiClient) {
-        ticket?.let { client.removeNotice(it) }
-        ticket = null
+    fun remove(client: RearWidgetApiClient, targetPackage: String) {
+        client.disableBusinessDisplay(targetPackage, business)
         isActive = false
     }
 
