@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
  * 卡片管理器 - 统一管理所有背屏卡片
  */
 class CardManager(private val context: Context) {
-    private val client = RearCardsApp.instance.widgetClient
+    val widgetClient = RearCardsApp.instance.widgetClient
     private val targetPackage = context.packageName
     private val scope = CoroutineScope(Dispatchers.Main)
     private var updateJob: Job? = null
@@ -34,7 +34,7 @@ class CardManager(private val context: Context) {
      * 连接 API 并注册所有启用的卡片
      */
     fun connect(onConnected: (() -> Unit)? = null) {
-        client.bind(context) {
+        widgetClient.bind(context) {
             // 默认启用时钟和电池
             enableCard(clockCard)
             enableCard(batteryCard)
@@ -46,9 +46,9 @@ class CardManager(private val context: Context) {
      * 启用并注册一张卡片
      */
     fun enableCard(card: BaseCard) {
-        if (!client.isConnected()) return
-        card.register(client, targetPackage)
-        card.publish(client, targetPackage)
+        if (!widgetClient.isConnected()) return
+        card.register(widgetClient, targetPackage)
+        card.publish(widgetClient, targetPackage)
         enabledCards.add(card.business)
     }
 
@@ -56,7 +56,7 @@ class CardManager(private val context: Context) {
      * 禁用并移除一张卡片
      */
     fun disableCard(card: BaseCard) {
-        card.unregister(client, targetPackage)
+        card.unregister(widgetClient, targetPackage)
         enabledCards.remove(card.business)
     }
 
@@ -87,16 +87,16 @@ class CardManager(private val context: Context) {
             while (isActive) {
                 // 每秒更新时钟
                 if (clockCard.business in enabledCards) {
-                    clockCard.publish(client, targetPackage)
+                    clockCard.publish(widgetClient, targetPackage)
                 }
 
                 // 每 30 秒更新步数和电池
                 if (tick % 30 == 0L) {
                     if (stepCard.business in enabledCards) {
-                        stepCard.publish(client, targetPackage)
+                        stepCard.publish(widgetClient, targetPackage)
                     }
                     if (batteryCard.business in enabledCards) {
-                        batteryCard.publish(client, targetPackage)
+                        batteryCard.publish(widgetClient, targetPackage)
                     }
                 }
 
@@ -104,13 +104,13 @@ class CardManager(private val context: Context) {
                 if (tick % 600 == 0L && weatherCard.business in enabledCards) {
                     launch(Dispatchers.IO) {
                         weatherCard.refresh()
-                        weatherCard.publish(client, targetPackage)
+                        weatherCard.publish(widgetClient, targetPackage)
                     }
                 }
 
                 // 自定义卡片不需要自动更新
                 if (customCard.business in enabledCards && tick == 0L) {
-                    customCard.publish(client, targetPackage)
+                    customCard.publish(widgetClient, targetPackage)
                 }
 
                 delay(1000)
@@ -135,7 +135,7 @@ class CardManager(private val context: Context) {
      */
     fun destroy() {
         stopAutoUpdate()
-        allCards.forEach { it.unregister(client, targetPackage) }
-        client.unbind()
+        allCards.forEach { it.unregister(widgetClient, targetPackage) }
+        widgetClient.unbind()
     }
 }
