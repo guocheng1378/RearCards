@@ -19,10 +19,10 @@ class BatteryCard(
 ) {
     override fun buildPayload(): Bundle {
         val batteryStatus = getBatteryStatus()
-        val level = batteryStatus.first
-        val isCharging = batteryStatus.second
-        val temperature = batteryStatus.third
-        val voltage = batteryStatus.fourth
+        val level = batteryStatus.level
+        val isCharging = batteryStatus.isCharging
+        val temperature = batteryStatus.temperature
+        val voltage = batteryStatus.voltage
 
         val statusEmoji = when {
             isCharging && level >= 90 -> "🔌"
